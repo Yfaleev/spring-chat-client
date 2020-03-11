@@ -1,27 +1,26 @@
 package com.yfaleev.springchatclient.ui;
 
 import com.yfaleev.springchatclient.dto.ChatMessageDto;
-import com.yfaleev.springchatclient.dto.ChatMessageHistoryDto;
-import com.yfaleev.springchatclient.dto.ChatUsersNamesDto;
 import com.yfaleev.springchatclient.dto.UserRegistrationResponse;
 import com.yfaleev.springchatclient.service.api.UserRegistrationService;
+import com.yfaleev.springchatclient.ui.handler.ChatConnectionHandler;
+import com.yfaleev.springchatclient.ui.handler.ChatUserNamesMessageHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
-import org.springframework.messaging.simp.stomp.StompCommand;
+import org.springframework.messaging.converter.MessageConverter;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
-import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHttpHeaders;
-import org.springframework.web.socket.client.WebSocketClient;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
-import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Scanner;
 import java.util.concurrent.ExecutionException;
+
+import static com.yfaleev.springchatclient.ChatApplicationPaths.*;
 
 @Component
 @Slf4j
@@ -29,10 +28,15 @@ public class ChatUi implements CommandLineRunner {
 
     private final UserRegistrationService userRegistrationService;
 
+    private final ChatConnectionHandler chatConnectionHandler;
+    private final ChatUserNamesMessageHandler chatUserNamesMessageHandler;
+
     private Scanner scanner = new Scanner(System.in);
 
-    public ChatUi(UserRegistrationService userRegistrationService) {
+    public ChatUi(UserRegistrationService userRegistrationService, ChatConnectionHandler chatConnectionHandler, ChatUserNamesMessageHandler chatUserNamesMessageHandler) {
         this.userRegistrationService = userRegistrationService;
+        this.chatConnectionHandler = chatConnectionHandler;
+        this.chatUserNamesMessageHandler = chatUserNamesMessageHandler;
     }
 
     @Override
@@ -62,9 +66,6 @@ public class ChatUi implements CommandLineRunner {
         }
     }
 
-    private void displayChatMessage(ChatMessageDto chatMessage) {
-        System.out.println(String.format("%s %s: %s", chatMessage.getSendDate(), chatMessage.getSender(), chatMessage.getMessageText()));
-    }
 
     private void showUserRegistration() {
         System.out.println("Type username: ");
@@ -89,13 +90,6 @@ public class ChatUi implements CommandLineRunner {
         System.out.println("---------------------------");
     }
 
-    private StompHeaders buildAuthHeaders(String username, String password) {
-        StompHeaders authHeaders = new StompHeaders();
-        authHeaders.add("login", username);
-        authHeaders.add("password", password);
-        return authHeaders;
-    }
-
     private void showChat() {
         System.out.println("Type username: ");
         String username = scanner.nextLine();
@@ -103,75 +97,17 @@ public class ChatUi implements CommandLineRunner {
         System.out.println("Type password: ");
         String password = scanner.nextLine();
 
-        WebSocketClient client = new StandardWebSocketClient();
-
-        WebSocketStompClient stompClient = new WebSocketStompClient(client);
-        stompClient.setMessageConverter(new MappingJackson2MessageConverter());
-
-        StompSession stompSession = null;
+        WebSocketStompClient stompClient = initStompClient(new MappingJackson2MessageConverter());
         StompHeaders authHeaders = buildAuthHeaders(username, password);
 
+        StompSession stompSession;
         try {
-            stompSession = stompClient.connect("ws://localhost:8080/ws", new WebSocketHttpHeaders(), authHeaders, new StompSessionHandlerAdapter() {
-                @Override
-                public void afterConnected(StompSession session, StompHeaders connectedHeaders) {
-                    System.out.println("You are in chat!");
-
-                    session.subscribe("/topic/public", new StompSessionHandlerAdapter() {
-                        @Override
-                        public Type getPayloadType(StompHeaders headers) {
-                            return ChatMessageDto.class;
-                        }
-
-                        @Override
-                        public void handleFrame(StompHeaders headers, Object payload) {
-                            displayChatMessage((ChatMessageDto) payload);
-                        }
-                    });
-
-                    session.subscribe("/user/queue/activeUsers", new StompSessionHandlerAdapter() {
-                        @Override
-                        public Type getPayloadType(StompHeaders headers) {
-                            return ChatUsersNamesDto.class;
-                        }
-
-                        @Override
-                        public void handleFrame(StompHeaders headers, Object payload) {
-                            ChatUsersNamesDto message = (ChatUsersNamesDto) payload;
-                            System.out.println("Active users:");
-                            message.getUserNames().forEach(System.out::println);
-                        }
-                    });
-
-                    session.subscribe("/user/queue/messageHistory", new StompSessionHandlerAdapter() {
-                        @Override
-                        public Type getPayloadType(StompHeaders headers) {
-                            return ChatMessageHistoryDto.class;
-                        }
-
-                        @Override
-                        public void handleFrame(StompHeaders headers, Object payload) {
-                            ChatMessageHistoryDto message = (ChatMessageHistoryDto) payload;
-                            message.getChatMessages().forEach(ChatUi.this::displayChatMessage);
-                        }
-                    });
-
-                    session.send("/app/chat.messageHistory", "");
-                }
-
-
-                @Override
-                public void handleException(StompSession session, StompCommand command, StompHeaders headers, byte[] payload, Throwable exception) {
-                    log.error(exception.getMessage(), exception);
-                    System.out.println("Exception occurred");
-                }
-
-                @Override
-                public void handleTransportError(StompSession session, Throwable exception) {
-                    log.error(exception.getMessage(), exception);
-                    System.out.println("Connection failed, try again");
-                }
-            }).get();
+            stompSession = stompClient.connect(
+                    HANDSHAKE_URL,
+                    new WebSocketHttpHeaders(),
+                    authHeaders,
+                    chatConnectionHandler
+            ).get();
         } catch (InterruptedException | ExecutionException e) {
             log.error(e.getMessage(), e);
             return;
@@ -179,21 +115,35 @@ public class ChatUi implements CommandLineRunner {
 
         System.out.println("Type a message to communicate in chat");
         System.out.println(String.format("Type '%s' to show active chat users", InputCommand.ACTIVE_USERS));
-        System.out.println(String.format("Type '%s' to exit chat", InputCommand.EXIT));
+        System.out.println(String.format("Type '%s' to go back to login", InputCommand.EXIT));
 
         while (true) {
             String input = scanner.nextLine();
 
             switch (input) {
                 case InputCommand.ACTIVE_USERS:
-                    stompSession.send("/app/chat.activeUsers", "");
+                    stompSession.subscribe(ACTIVE_USERS_DESTINATION, chatUserNamesMessageHandler);
                     break;
                 case InputCommand.EXIT:
                     stompSession.disconnect();
                     return;
                 default:
-                    stompSession.send("/app/chat.sendMessage", new ChatMessageDto(input));
+                    stompSession.send(CHAT_DESTINATION, new ChatMessageDto(input));
             }
         }
+    }
+
+    private StompHeaders buildAuthHeaders(String username, String password) {
+        StompHeaders authHeaders = new StompHeaders();
+        authHeaders.add("login", username);
+        authHeaders.add("password", password);
+        return authHeaders;
+    }
+
+    private WebSocketStompClient initStompClient(MessageConverter messageConverter) {
+        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        stompClient.setMessageConverter(messageConverter);
+
+        return stompClient;
     }
 }

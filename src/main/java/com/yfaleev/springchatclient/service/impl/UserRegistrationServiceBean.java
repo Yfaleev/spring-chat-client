@@ -2,6 +2,7 @@ package com.yfaleev.springchatclient.service.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yfaleev.springchatclient.dto.ApiResponse;
 import com.yfaleev.springchatclient.dto.UserDto;
 import com.yfaleev.springchatclient.dto.UserRegistrationResponse;
 import com.yfaleev.springchatclient.service.api.UserRegistrationService;
@@ -14,15 +15,15 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
+import static com.yfaleev.springchatclient.ChatApplicationPaths.USER_REGISTRATION_URL;
+
 @Service
 @Slf4j
-public class UserRegistrationServiceImpl implements UserRegistrationService {
+public class UserRegistrationServiceBean implements UserRegistrationService {
 
     private final RestTemplate restTemplate;
 
-    private static final String REGISTRATION_URL = "http://localhost:8080/api/users";
-
-    public UserRegistrationServiceImpl(RestTemplate restTemplate) {
+    public UserRegistrationServiceBean(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
@@ -30,7 +31,7 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
     public UserRegistrationResponse registerUser(String userName, String password) {
         HttpEntity<UserDto> entity = new HttpEntity<>(new UserDto(userName, password));
         try {
-            restTemplate.postForLocation(REGISTRATION_URL, entity);
+            restTemplate.postForObject(USER_REGISTRATION_URL, entity, ApiResponse.class);
             return new UserRegistrationResponse(true);
         } catch (HttpStatusCodeException e) {
             log.error(e.getMessage(), e);
@@ -47,9 +48,10 @@ public class UserRegistrationServiceImpl implements UserRegistrationService {
         ObjectMapper mapper = new ObjectMapper();
 
         try {
-            return mapper.readValue(body, List.class); // todo
+            ApiResponse apiResponse = mapper.readValue(body, ApiResponse.class);
+            return apiResponse.getErrors();
         } catch (JsonProcessingException ex) {
-            throw new RuntimeException();
+            throw new RuntimeException(ex);
         }
     }
 }
