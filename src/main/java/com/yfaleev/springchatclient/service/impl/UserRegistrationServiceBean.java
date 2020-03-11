@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.yfaleev.springchatclient.ChatApplicationPaths.USER_REGISTRATION_URL;
@@ -20,6 +21,8 @@ import static com.yfaleev.springchatclient.ChatApplicationPaths.USER_REGISTRATIO
 @Service
 @Slf4j
 public class UserRegistrationServiceBean implements UserRegistrationService {
+
+    private static final String SERVICE_UNAVAILABLE = "User registration service unavailable: ";
 
     private final RestTemplate restTemplate;
 
@@ -39,9 +42,17 @@ public class UserRegistrationServiceBean implements UserRegistrationService {
             if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
                 return new UserRegistrationResponse(false, readErrors(e.getResponseBodyAsString()));
             } else {
-                return new UserRegistrationResponse(false);
+                return new UserRegistrationResponse(false, Collections.singletonList(getExceptionError(e)));
             }
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+
+            return new UserRegistrationResponse(false, Collections.singletonList(getExceptionError(e)));
         }
+    }
+
+    private String getExceptionError(Throwable ex) {
+        return SERVICE_UNAVAILABLE + ex.getMessage();
     }
 
     private List<String> readErrors(String body) {

@@ -2,18 +2,15 @@ package com.yfaleev.springchatclient.ui;
 
 import com.yfaleev.springchatclient.dto.ChatMessageDto;
 import com.yfaleev.springchatclient.dto.UserRegistrationResponse;
+import com.yfaleev.springchatclient.factory.StompClientFactory;
 import com.yfaleev.springchatclient.service.api.UserRegistrationService;
 import com.yfaleev.springchatclient.ui.handler.ChatConnectionHandler;
 import com.yfaleev.springchatclient.ui.handler.ChatUserNamesMessageHandler;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.messaging.converter.MappingJackson2MessageConverter;
-import org.springframework.messaging.converter.MessageConverter;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHttpHeaders;
-import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 
 import java.util.List;
@@ -23,24 +20,33 @@ import java.util.concurrent.ExecutionException;
 import static com.yfaleev.springchatclient.ChatApplicationPaths.*;
 
 @Component
-@Slf4j
 public class ChatUi implements CommandLineRunner {
 
+    private final Scanner scanner;
+
     private final UserRegistrationService userRegistrationService;
+
+    private final StompClientFactory stompClientFactory;
 
     private final ChatConnectionHandler chatConnectionHandler;
     private final ChatUserNamesMessageHandler chatUserNamesMessageHandler;
 
-    private Scanner scanner = new Scanner(System.in);
-
-    public ChatUi(UserRegistrationService userRegistrationService, ChatConnectionHandler chatConnectionHandler, ChatUserNamesMessageHandler chatUserNamesMessageHandler) {
+    public ChatUi(
+            Scanner scanner,
+            UserRegistrationService userRegistrationService,
+            StompClientFactory stompClientFactory,
+            ChatConnectionHandler chatConnectionHandler,
+            ChatUserNamesMessageHandler chatUserNamesMessageHandler) {
+        this.scanner = scanner;
         this.userRegistrationService = userRegistrationService;
+        this.stompClientFactory = stompClientFactory;
         this.chatConnectionHandler = chatConnectionHandler;
         this.chatUserNamesMessageHandler = chatUserNamesMessageHandler;
     }
 
+
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         while (true) {
 
             System.out.println("---------------------------");
@@ -76,7 +82,6 @@ public class ChatUi implements CommandLineRunner {
 
         UserRegistrationResponse userRegistrationResponse = userRegistrationService.registerUser(userName, password);
 
-        System.out.println("---------------------------");
         if (userRegistrationResponse.isSuccess()) {
             System.out.println("Successful registration!");
         } else {
@@ -87,7 +92,6 @@ public class ChatUi implements CommandLineRunner {
                 errors.forEach(System.out::println);
             }
         }
-        System.out.println("---------------------------");
     }
 
     private void showChat() {
@@ -97,7 +101,7 @@ public class ChatUi implements CommandLineRunner {
         System.out.println("Type password: ");
         String password = scanner.nextLine();
 
-        WebSocketStompClient stompClient = initStompClient(new MappingJackson2MessageConverter());
+        WebSocketStompClient stompClient = stompClientFactory.newClient();
         StompHeaders authHeaders = buildAuthHeaders(username, password);
 
         StompSession stompSession;
@@ -109,7 +113,7 @@ public class ChatUi implements CommandLineRunner {
                     chatConnectionHandler
             ).get();
         } catch (InterruptedException | ExecutionException e) {
-            log.error(e.getMessage(), e);
+            System.out.println("Connection failed. Try again.");
             return;
         }
 
@@ -120,15 +124,20 @@ public class ChatUi implements CommandLineRunner {
         while (true) {
             String input = scanner.nextLine();
 
-            switch (input) {
-                case InputCommand.ACTIVE_USERS:
-                    stompSession.subscribe(ACTIVE_USERS_DESTINATION, chatUserNamesMessageHandler);
-                    break;
-                case InputCommand.EXIT:
-                    stompSession.disconnect();
-                    return;
-                default:
-                    stompSession.send(CHAT_DESTINATION, new ChatMessageDto(input));
+            try {
+                switch (input) {
+                    case InputCommand.ACTIVE_USERS:
+                        stompSession.subscribe(ACTIVE_USERS_DESTINATION, chatUserNamesMessageHandler);
+                        break;
+                    case InputCommand.EXIT:
+                        stompSession.disconnect();
+                        return;
+                    default:
+                        stompSession.send(CHAT_DESTINATION, new ChatMessageDto(input));
+                }
+            } catch (Exception e) {
+                System.out.println("Exception occurred: " + e.getMessage());
+                return;
             }
         }
     }
@@ -138,12 +147,5 @@ public class ChatUi implements CommandLineRunner {
         authHeaders.add("login", username);
         authHeaders.add("password", password);
         return authHeaders;
-    }
-
-    private WebSocketStompClient initStompClient(MessageConverter messageConverter) {
-        WebSocketStompClient stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        stompClient.setMessageConverter(messageConverter);
-
-        return stompClient;
     }
 }

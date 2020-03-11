@@ -4,7 +4,7 @@ import com.yfaleev.springchatclient.dto.ChatMessageDto;
 import com.yfaleev.springchatclient.dto.ChatMessageHistoryDto;
 import com.yfaleev.springchatclient.dto.ChatUsersNamesDto;
 
-public final class UiUtils {
+public final class ConsoleUiUtils {
 
     public static void displayChatMessage(ChatMessageDto chatMessage) {
         ChatMessageDto.ChatMessageType messageType = chatMessage.getMessageType();
@@ -29,6 +29,6 @@ public final class UiUtils {
     }
 
     public static void printMessageHistory(ChatMessageHistoryDto chatMessageHistoryDto) {
-        chatMessageHistoryDto.getChatMessages().forEach(UiUtils::displayChatMessage);
+        chatMessageHistoryDto.getChatMessages().forEach(ConsoleUiUtils::displayChatMessage);
     }
 }

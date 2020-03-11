@@ -1,15 +1,15 @@
 package com.yfaleev.springchatclient.ui.handler;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
+import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.stereotype.Component;
 
-import static com.yfaleev.springchatclient.ChatApplicationPaths.*;
+import static com.yfaleev.springchatclient.ChatApplicationPaths.CHAT_BROKER;
+import static com.yfaleev.springchatclient.ChatApplicationPaths.MESSAGE_HISTORY_DESTINATION;
 
 @Component
-@Slf4j
-public class ChatConnectionHandler extends StompSessionExceptionHandler {
+public class ChatConnectionHandler extends StompSessionHandlerAdapter {
 
     private final ChatMessageHandler chatMessageHandler;
     private final ChatMessageHistoryHandler chatMessageHistoryHandler;
@@ -25,11 +25,5 @@ public class ChatConnectionHandler extends StompSessionExceptionHandler {
 
         session.subscribe(CHAT_BROKER, chatMessageHandler);
         session.subscribe(MESSAGE_HISTORY_DESTINATION, chatMessageHistoryHandler);
-    }
-
-    @Override
-    public void handleTransportError(StompSession session, Throwable exception) {
-        log.error(exception.getMessage(), exception);
-        System.out.println("Connection failed. Try again.");
     }
 }
