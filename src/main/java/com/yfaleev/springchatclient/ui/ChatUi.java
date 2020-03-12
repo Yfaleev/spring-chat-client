@@ -117,6 +117,7 @@ public class ChatUi implements CommandLineRunner {
             return;
         }
 
+        System.out.println("You are in chat!");
         System.out.println("Type a message to communicate in chat");
         System.out.println(String.format("Type '%s' to show active chat users", InputCommand.ACTIVE_USERS));
         System.out.println(String.format("Type '%s' to go back to login", InputCommand.EXIT));

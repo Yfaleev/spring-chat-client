@@ -1,16 +1,10 @@
 package com.yfaleev.springchatclient.dto;
 
-import lombok.AllArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 
 @Getter
-@Setter
-@NoArgsConstructor
 public class ChatMessageDto {
     public enum ChatMessageType {
         CHATTING,
@@ -28,5 +22,17 @@ public class ChatMessageDto {
 
     public ChatMessageDto(String messageText) {
         this.messageText = messageText;
+    }
+
+    @JsonCreator
+    public ChatMessageDto(
+            @JsonProperty("messageType") ChatMessageType messageType,
+            @JsonProperty("messageText") String messageText,
+            @JsonProperty("sender") String sender,
+            @JsonProperty("sendDate") String sendDate) {
+        this.messageType = messageType;
+        this.messageText = messageText;
+        this.sender = sender;
+        this.sendDate = sendDate;
     }
 }
