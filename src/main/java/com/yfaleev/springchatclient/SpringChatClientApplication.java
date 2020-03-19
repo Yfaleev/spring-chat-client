@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Scope;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.converter.MessageConverter;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.Scanner;
 
@@ -15,11 +14,6 @@ public class SpringChatClientApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(SpringChatClientApplication.class, args);
-    }
-
-    @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplate();
     }
 
     @Bean

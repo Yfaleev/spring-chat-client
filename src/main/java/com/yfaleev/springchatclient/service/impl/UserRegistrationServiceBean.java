@@ -7,6 +7,7 @@ import com.yfaleev.springchatclient.dto.UserDto;
 import com.yfaleev.springchatclient.dto.UserRegistrationResponse;
 import com.yfaleev.springchatclient.service.api.UserRegistrationService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,8 +27,8 @@ public class UserRegistrationServiceBean implements UserRegistrationService {
 
     private final RestTemplate restTemplate;
 
-    public UserRegistrationServiceBean(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
+    public UserRegistrationServiceBean(RestTemplateBuilder restTemplateBuilder) {
+        this.restTemplate = restTemplateBuilder.build();
     }
 
     @Override
